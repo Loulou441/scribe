@@ -216,3 +216,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Scribe - comptes rendus générés
+comptes_rendus/*
+!comptes_rendus/exemple_compte-rendu.md

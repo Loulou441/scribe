@@ -47,17 +47,77 @@ print(texte)
 
 Un échantillon audio léger (~30 secondes) est disponible dans `audio_samples/` pour tester la fonction sans avoir à enregistrer sa propre voix.
 
-## Structure du projet
+### Compte rendu structuré (chat completions, JSON mode)
+ 
+La génération du compte rendu est gérée par `src/report_generator.py`, qui appelle le modèle LLM de Groq (`LLM_MODEL` défini dans `config.py`, actuellement `llama-3.1-8b-instant`) via l'API "chat completions", en **JSON mode** (`response_format={"type": "json_object"}`) pour garantir une sortie directement parsable.
+ 
+`generate_report()` retourne un **dict Python** avec le schéma suivant :
+ 
+```json
+{
+  "titre": "Point d'avancement projet Scribe",
+  "resume": "L'équipe a fait le point sur l'avancement du module de transcription...",
+  "points_cles": [
+    "Le modèle whisper-large-v3-turbo est retenu pour la transcription",
+    "Le module de compte rendu utilise désormais le JSON mode de Groq"
+  ],
+  "decisions_actions": []
+}
+```
+ 
+Le comportement du modèle est piloté par un **prompt système** stocké dans `prompts/system_prompt.txt`.
+ 
+**Format de sortie imposé** :
+- `titre` : titre du compte rendu
+- `resume` : résumé de 3 à 5 lignes
+- `points_cles` : liste des points clés
+- `decisions_actions` : liste des décisions/actions **uniquement si elles sont explicitement présentes** dans l'audio — sinon un tableau **vide** (`[]`), le modèle n'invente rien pour la remplir.
+**Gestion des erreurs** :
+- `FileNotFoundError` si `prompts/system_prompt.txt` est introuvable
+- `RuntimeError` si l'appel à l'API Groq échoue, ou si la réponse n'est pas un JSON valide (`json.JSONDecodeError`)
 
+### Mise en forme Markdown datée
+ 
+Le dict JSON renvoyé par `generate_report()` est ensuite transformé en Markdown lisible par `src/markdown_formatter.py`.
+ 
+Exemple de rendu :
+ 
+```markdown
+# Point d'avancement projet Scribe
+ 
+*Généré le 06/07/2026 à 09:32 par Scribe*
+ 
+---
+ 
+## 📝 Résumé
+ 
+L'équipe a fait le point sur l'avancement du module de transcription...
+ 
+## 🔑 Points clés
+ 
+- whisper-large-v3-turbo retenu pour la transcription
+- Le module de compte rendu utilise désormais le JSON mode de Groq
+ 
+## ✅ Décisions et actions
+ 
+*Aucune décision ou action explicite mentionnée dans cet enregistrement.*
+```
+ 
+Si `decisions_actions` (ou `points_cles`) est vide, la section affiche une note en italique plutôt qu'une liste — aucun contenu n'est inventé, c'est uniquement un texte de mise en forme.
+ 
+## Structure du projet
+ 
 ```
 scribe/
 ├── src/            # code source
+├── prompts/        # prompts système (texte brut, itérables sans toucher au code)
 ├── audio_samples/  # fichiers audio
 ├── .env
 ├── .gitignore
 ├── requirements.txt
 └── README.md
 ```
+
 
 ## Statut
 
@@ -109,3 +169,12 @@ Selon la documentation de Groq, la réponse contient, en plus du texte (`text`) 
 | `avg_logprob` | confiance moyenne du modèle sur ce segment (proche de 0 = bonne confiance) |
 | `compression_ratio` | détecte les répétitions/bégaiements anormaux (valeur normale ≈ 1–2) |
 | `no_speech_prob` | probabilité qu'il n'y ait pas de parole dans ce segment (silence, musique...) |
+
+4. Quelle température choisissez-vous pour cet usage, et pourquoi ?
+
+Vu qu'il est demandé à ce que le LLM n'hallicine en aucun cas, une température de 0 est requise.
+
+5. Votre prompt système est envoyé à chaque requête : quel lien avec la notion de tokens en cache vue en cours ?
+
+Vu que le prompt prompt système stocké dans `prompts/system_prompt.txt` est identique à chaque appel, Groq va mettre en cache les tokens du préfixe d'une requête lorsqu'il est réutilisé à l'identique entre plusieurs appels, pour éviter de le retraiter entièrement à chaque fois. Par conséquence, on aura temporairement un cout réduit vu que les tokens du prompt ne sont facturés/traités en entier que la première fois si le cache est actif ; les appels suivants avec le même préfixe bénéficient d'un tarif réduit sur ces tokens en cache. Et le modèle n'a pas besoin de recalculer l'attention sur tout le prompt système à chaque fois, ce qui accélère le temps de réponse.
+
