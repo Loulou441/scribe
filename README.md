@@ -109,3 +109,12 @@ Selon la documentation de Groq, la réponse contient, en plus du texte (`text`) 
 | `avg_logprob` | confiance moyenne du modèle sur ce segment (proche de 0 = bonne confiance) |
 | `compression_ratio` | détecte les répétitions/bégaiements anormaux (valeur normale ≈ 1–2) |
 | `no_speech_prob` | probabilité qu'il n'y ait pas de parole dans ce segment (silence, musique...) |
+
+4. Quelle température choisissez-vous pour cet usage, et pourquoi ?
+
+Vu qu'il est demandé à ce que le LLM n'hallicine en aucun cas, une température de 0 est requise.
+
+5. Votre prompt système est envoyé à chaque requête : quel lien avec la notion de tokens en cache vue en cours ?
+
+Vu que le prompt prompt système stocké dans `prompts/system_prompt.txt` est identique à chaque appel, Groq va mettre en cache les tokens du préfixe d'une requête lorsqu'il est réutilisé à l'identique entre plusieurs appels, pour éviter de le retraiter entièrement à chaque fois. Par conséquence, on aura temporairement un cout réduit vu que les tokens du prompt ne sont facturés/traités en entier que la première fois si le cache est actif ; les appels suivants avec le même préfixe bénéficient d'un tarif réduit sur ces tokens en cache. Et le modèle n'a pas besoin de recalculer l'attention sur tout le prompt système à chaque fois, ce qui accélère le temps de réponse.
+
