@@ -109,14 +109,16 @@ Si `decisions_actions` (ou `points_cles`) est vide, la section affiche une note 
  
 ```
 scribe/
-├── src/            # code source
-├── prompts/        # prompts système (texte brut, itérables sans toucher au code)
-├── audio_samples/  # fichiers audio
+├── src/               # code source (main.py, speech_to_text.py, report_generator.py, markdown_formatter.py, config.py)
+├── prompts/           # prompts système (texte brut, itérables sans toucher au code)
+├── audio_samples/     # fichiers audio
+├── comptes_rendus/    # comptes rendus générés (ignorés sauf l'exemple, voir .gitignore)
 ├── .env
 ├── .gitignore
 ├── requirements.txt
 └── README.md
 ```
+
 
 
 ## Statut
