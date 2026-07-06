@@ -10,7 +10,11 @@ from formatteur_markdown import format_as_markdown, save_markdown_report
 
 
 def main():
-    audio_path = "audio_samples/test_audio_stt.mp4"
+    if len(sys.argv) != 2:
+        print("Usage : python src/main.py <chemin_vers_fichier_audio>")
+        sys.exit(1)
+ 
+    audio_path = sys.argv[1]
 
     # Étape 1 : transcription
     print(f"🎙️  Transcription en cours... ({audio_path})")
