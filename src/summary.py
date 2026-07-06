@@ -11,6 +11,8 @@ from config import GROQ_API_KEY, LLM_MODEL
 
 from speech_to_text import transcription_from_audio
 
+from formatteur_markdown import format_as_markdown, save_markdown_report
+
 import json
 
 client = Groq(api_key=GROQ_API_KEY)
@@ -52,12 +54,12 @@ def generate_report(transcription: str) -> str:
  
     return report
 
-
-
 if __name__ == "__main__":
     exemple = transcription_from_audio("audio_samples/test_audio_stt.mp4")
     try:
         compte_rendu = generate_report(exemple)
-        print(compte_rendu)
+        md = format_as_markdown(compte_rendu)
+        print(md)
+        chemin = save_markdown_report(md)
     except (FileNotFoundError, RuntimeError) as e:
         print(e)
