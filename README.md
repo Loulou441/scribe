@@ -21,10 +21,49 @@ pip install -r requirements.txt
 ## Utilisation
 
 ```bash
-python src/main.py
+python src/main.py audio_samples/test_audio_stt.mp4
 ```
 
-Le compte rendu s'affiche à l'écran et est sauvegardé dans un fichier Markdown daté.
+Le programme enchaîne automatiquement la transcription puis la génération du compte rendu, en affichant des messages de progression à chaque étape :
+
+```
+🎙️  Transcription en cours... (audio_samples/test_audio_stt.mp4)
+✅ Transcription terminée.
+✍️  Rédaction du compte rendu en cours...
+✅ Compte rendu généré.
+💾 Compte rendu sauvegardé dans : comptes_rendus/2026-07-06_101530_compte-rendu.md
+```
+
+Le fichier `comptes_rendus/2026-07-06_101530_compte-rendu.md` généré contient le compte rendu structuré, par exemple :
+
+```markdown
+# Point d'avancement projet Scribe
+
+*Généré le 06/07/2026 à 10:15 par Scribe*
+
+---
+
+## 📝 Résumé
+
+L'équipe a fait le point sur l'avancement du module de transcription...
+
+## 🔑 Points clés
+
+- whisper-large-v3-turbo retenu pour la transcription
+- Le compte rendu est désormais généré en JSON mode
+
+## ✅ Décisions et actions
+
+*Aucune décision ou action explicite mentionnée dans cet enregistrement.*
+```
+
+Si le fichier audio n'existe pas, ou si l'appel à l'API Groq échoue, un message d'erreur explicite s'affiche et le programme s'arrête (code de sortie 1) :
+
+```
+$ python src/main.py audio_samples/fichier_inexistant.wav
+🎙️  Transcription en cours... (audio_samples/fichier_inexistant.wav)
+❌ Fichier audio introuvable : audio_samples/fichier_inexistant.wav
+```
 
 ### Transcription audio (Speech-to-Text)
 
@@ -49,7 +88,7 @@ Un échantillon audio léger (~30 secondes) est disponible dans `audio_samples/`
 
 ### Compte rendu structuré (chat completions, JSON mode)
  
-La génération du compte rendu est gérée par `src/report_generator.py`, qui appelle le modèle LLM de Groq (`LLM_MODEL` défini dans `config.py`, actuellement `llama-3.1-8b-instant`) via l'API "chat completions", en **JSON mode** (`response_format={"type": "json_object"}`) pour garantir une sortie directement parsable.
+La génération du compte rendu est gérée par `src/summary.py`, qui appelle le modèle LLM de Groq (`LLM_MODEL` défini dans `config.py`, actuellement `llama-3.1-8b-instant`) via l'API "chat completions", en **JSON mode** (`response_format={"type": "json_object"}`) pour garantir une sortie directement parsable.
  
 `generate_report()` retourne un **dict Python** avec le schéma suivant :
  
@@ -65,7 +104,7 @@ La génération du compte rendu est gérée par `src/report_generator.py`, qui a
 }
 ```
  
-Le comportement du modèle est piloté par un **prompt système** stocké dans `prompts/system_prompt.txt`.
+Le comportement du modèle est piloté par un **prompt système** stocké dans `src/prompts_LLM/summary_generator_prompt.txt`.
  
 **Format de sortie imposé** :
 - `titre` : titre du compte rendu
@@ -73,12 +112,12 @@ Le comportement du modèle est piloté par un **prompt système** stocké dans `
 - `points_cles` : liste des points clés
 - `decisions_actions` : liste des décisions/actions **uniquement si elles sont explicitement présentes** dans l'audio — sinon un tableau **vide** (`[]`), le modèle n'invente rien pour la remplir.
 **Gestion des erreurs** :
-- `FileNotFoundError` si `prompts/system_prompt.txt` est introuvable
+- `FileNotFoundError` si `src/prompts_LLM/summary_generator_prompt.txt` est introuvable
 - `RuntimeError` si l'appel à l'API Groq échoue, ou si la réponse n'est pas un JSON valide (`json.JSONDecodeError`)
 
 ### Mise en forme Markdown datée
  
-Le dict JSON renvoyé par `generate_report()` est ensuite transformé en Markdown lisible par `src/markdown_formatter.py`.
+Le dict JSON renvoyé par `generate_report()` est ensuite transformé en Markdown lisible par `src/formatteur_markdown.py`.
  
 Exemple de rendu :
  
@@ -109,9 +148,16 @@ Si `decisions_actions` (ou `points_cles`) est vide, la section affiche une note 
  
 ```
 scribe/
-├── src/            # code source
-├── prompts/        # prompts système (texte brut, itérables sans toucher au code)
-├── audio_samples/  # fichiers audio
+├── src/
+│   ├── main.py                 # pipeline complet (transcription → compte rendu → markdown)
+│   ├── speech_to_text.py       # transcription audio via Groq
+│   ├── summary.py              # génération du compte rendu structuré (JSON mode)
+│   ├── formatteur_markdown.py  # mise en forme + sauvegarde du Markdown daté
+│   ├── config.py               # clé API et noms de modèles
+│   └── prompts_LLM/
+│       └── summary_generator_prompt.txt
+├── audio_samples/               # fichiers audio (dont l'échantillon de test)
+├── comptes_rendus/              # comptes rendus générés (ignorés sauf l'exemple)
 ├── .env
 ├── .gitignore
 ├── requirements.txt
@@ -176,5 +222,4 @@ Vu qu'il est demandé à ce que le LLM n'hallicine en aucun cas, une températur
 
 5. Votre prompt système est envoyé à chaque requête : quel lien avec la notion de tokens en cache vue en cours ?
 
-Vu que le prompt prompt système stocké dans `prompts/system_prompt.txt` est identique à chaque appel, Groq va mettre en cache les tokens du préfixe d'une requête lorsqu'il est réutilisé à l'identique entre plusieurs appels, pour éviter de le retraiter entièrement à chaque fois. Par conséquence, on aura temporairement un cout réduit vu que les tokens du prompt ne sont facturés/traités en entier que la première fois si le cache est actif ; les appels suivants avec le même préfixe bénéficient d'un tarif réduit sur ces tokens en cache. Et le modèle n'a pas besoin de recalculer l'attention sur tout le prompt système à chaque fois, ce qui accélère le temps de réponse.
-
+Vu que le prompt prompt système stocké dans `src/prompts_LLM/summary_generator_prompt.txt` est identique à chaque appel, Groq va mettre en cache les tokens du préfixe d'une requête lorsqu'il est réutilisé à l'identique entre plusieurs appels, pour éviter de le retraiter entièrement à chaque fois. Par conséquence, on aura temporairement un cout réduit vu que les tokens du prompt ne sont facturés/traités en entier que la première fois si le cache est actif ; les appels suivants avec le même préfixe bénéficient d'un tarif réduit sur ces tokens en cache. Et le modèle n'a pas besoin de recalculer l'attention sur tout le prompt système à chaque fois, ce qui accélère le temps de réponse.

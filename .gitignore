@@ -220,3 +220,7 @@ __marimo__/
 # Scribe - comptes rendus générés
 comptes_rendus/*
 !comptes_rendus/exemple_compte-rendu.md
+
+# Scribe - audio hors test
+audio_samples/*
+!audio_samples/test_audio_stt.mp4
