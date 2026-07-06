@@ -42,4 +42,9 @@ scribe/
 
 Projet en cours de développement dans le cadre du TP M2 MD5 — Git, GitHub et intégration d'IA serverless.
 
+## Question de réflexion
 
+1. pourquoi le .gitignore doit-il exister avant d'écrire la moindre ligne de code
+manipulant des secrets ?
+
+Il est important de mettre en place le gitignore le plus rapidement possible dans le projet car cea permet d'éviter toute erreur de push. En effet, il est facile d'oublier de ne pas push certaines données importantes (ex: clé groq) lors de commit. Il convient don de les exclure dès le départ afin de ne plus s'en préoccuper.
